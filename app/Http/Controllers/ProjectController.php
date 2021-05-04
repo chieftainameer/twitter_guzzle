@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
+use App\Models\TwitterUser;
+
 class ProjectController extends Controller
 {
     public function tweetRetrieval(){
@@ -35,7 +37,25 @@ class ProjectController extends Controller
 
         $responseBody = json_decode($response->getBody());
 
-        dd($responseBody);
+        foreach( $responseBody->data as $row){
+            $data = TwitterUser::create(
+                [
+                    'id' => $row->id,
+                    'text' => $row->text,
+                    'author_id' => $row->author_id,
+                    'created_at' => $row->created_at
+                ]
+            );
+            if($data){
+                echo "Data retrieved and has been persisted to database successfully\n";
+            }
+            else
+            {
+                echo "Sorry! Data could be loaded to database";
+            }
+        }
+
+        // dd(sizeof($responseBody->data));
 
     }
 
