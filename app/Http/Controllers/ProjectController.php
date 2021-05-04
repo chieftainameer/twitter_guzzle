@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 use App\Models\TwitterUser;
+use App\Models\UserMention;
 
 class ProjectController extends Controller
 {
@@ -47,6 +49,7 @@ class ProjectController extends Controller
                 ]
             );
             if($data){
+                Log::info('data inserted to db.', ['id' => $data->id]);
                 echo "Data retrieved and has been persisted to database successfully\n";
             }
             else
@@ -82,7 +85,23 @@ class ProjectController extends Controller
         ]);
 
         $responseBody = json_decode($response->getBody());
-
-        dd($responseBody);  
+        $mention = new UserMention();
+        foreach($responseBody->data as $row){
+            $data = $mention::create([
+                'post_id' => $row->id,
+                'text' => $row->text,
+                'users_oldest_id' => $responseBody->meta->oldest_id,
+                'users_newest_id' => $responseBody->meta->newest_id,
+                'username_appearance_count' => $responseBody->meta->result_count,
+            ]);
+            if($data){
+                Log::info('data persisted to db',['id' => $data->id]);
+            }
+            else
+            {
+                Log::error("Some error occured");
+            }
+        }
+        // dd($responseBody);  
     }
 }
