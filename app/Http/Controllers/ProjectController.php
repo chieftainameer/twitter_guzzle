@@ -33,7 +33,7 @@ class ProjectController extends Controller
                 'ids' => '1263150595717730305,1227640996038684673,1199786642791452673',
                 'tweet.fields' => 'created_at',
                 'expansions' => 'author_id',
-                'user.fields' => 'created_at'     
+                'user.fields' => 'created_at'
         ];
 
         try{
