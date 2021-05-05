@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'twitter_bearer_token' =>  'Bearer AAAAAAAAAAAAAAAAAAAAAPnhNAEAAAAAwt5vDJ%2BNlfs1qRYzRGYv8P89jf0%3DGxFJcptaF31fecaSq7qt0JrFbFaEt7auWRh0JJG3WhCCTtj29i',
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
@@ -174,6 +176,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        App\Providers\GuzzleServiceProvider::class,
 
     ],
 

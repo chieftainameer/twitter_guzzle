@@ -3,18 +3,30 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 
 use App\Models\TwitterUser;
 use App\Models\UserMention;
+use App\Services\GuzzleConnection;
+use Illuminate\Support\Facades\DB;
+
+use App\Exceptions\NoDataFetchedException;
+use App\Exceptions\NoApiResponseException;
+use App\Exceptions\DataInsertionFailedException;
 
 class ProjectController extends Controller
 {
-    public function tweetRetrieval(){
-        $client = new Client(); // new guzzle http client 
+    protected $conexion;
+    public function __construct(GuzzleConnection $conn){
+        $this->conn = $conn->conexion();
+        if(! $this->conn){
+            throw  new NoApiResponseException('connection with api could not be established');
+        }
+    }
 
-        $url = 'https://api.twitter.com/2/tweets';
+    public function tweetRetrieval(){
+
+        $url = env('TWITTER_API_URL').'tweets';
 
         // query parameters
         $params = [
@@ -24,84 +36,82 @@ class ProjectController extends Controller
                 'user.fields' => 'created_at'     
         ];
 
-        // authorization token
-        $headers = [
-            'Authorization' => 'Bearer AAAAAAAAAAAAAAAAAAAAAPnhNAEAAAAAwt5vDJ%2BNlfs1qRYzRGYv8P89jf0%3DGxFJcptaF31fecaSq7qt0JrFbFaEt7auWRh0JJG3WhCCTtj29i
-            '
-        ];
-
-        $response = $client->request('GET',$url,[
-            'headers' => $headers,
-            'query' => $params,
-            
-        ]
-        );
-
-        $responseBody = json_decode($response->getBody());
-
-        foreach( $responseBody->data as $row){
-            $data = TwitterUser::create(
-                [
-                    'id' => $row->id,
-                    'text' => $row->text,
-                    'author_id' => $row->author_id,
-                    'created_at' => $row->created_at
-                ]
+        try{
+             DB::beginTransaction();
+            $response = $this->conn->request('GET',$url,[
+                'query' => $params,  
+            ]
             );
-            if($data){
-                Log::info('data inserted to db.', ['id' => $data->id]);
-                echo "Data retrieved and has been persisted to database successfully\n";
+            if(empty($response)){
+                throw new NoDataFetchedException('No data found for this request');
             }
-            else
-            {
-                echo "Sorry! Data could be loaded to database";
-            }
-        }
+            $responseBody = json_decode($response->getBody());
 
-        // dd(sizeof($responseBody->data));
+            foreach( $responseBody->data as $row){
+                $data = TwitterUser::create(
+                    [
+                        'id' => $row->id,
+                        'text' => $row->text,
+                        'author_id' => $row->author_id,
+                        'created_at' => $row->created_at
+                    ]
+                );
+                if(! $data){
+                    throw new DataInsertionFailedException('Data insertion was failed try one more time');
+                }
+                DB::commit();
+                return  response()->json(['message'=> 'success','data' => $data], 200);
+            }
+        }catch(\Exception $e){
+            DB::rollback();
+            return response()->json(['message' => 'fail','data' => []]);
+        }
 
     }
 
 
     public function userMentionRetrieval(){
-        $client = new Client();
+        
         $user = 2244994945; // random user id of a twitter account holder
 
         // url for retrieving user mentions on twitter
-        $url = 'https://api.twitter.com/2/users/'.$user.'/mentions';
+        $url = env('TWITTER_API_URL').'users/'.$user.'/mentions';
         $params = [
             'max_results' => 100,
             'tweet.fields' => 'created_at',
         ];
 
-        $headers = [
-            'Authorization' => 'Bearer AAAAAAAAAAAAAAAAAAAAAPnhNAEAAAAAwt5vDJ%2BNlfs1qRYzRGYv8P89jf0%3DGxFJcptaF31fecaSq7qt0JrFbFaEt7auWRh0JJG3WhCCTtj29i
-            '
-        ];
+        try{
+            DB::beginTransaction();
 
-        $response = $client->request('GET',$url,[
-            'headers' => $headers,
-            'query' => $params,
-        ]);
-
-        $responseBody = json_decode($response->getBody());
-        $mention = new UserMention();
-        foreach($responseBody->data as $row){
-            $data = $mention::create([
-                'post_id' => $row->id,
-                'text' => $row->text,
-                'users_oldest_id' => $responseBody->meta->oldest_id,
-                'users_newest_id' => $responseBody->meta->newest_id,
-                'username_appearance_count' => $responseBody->meta->result_count,
+            $response = $this->conn->request('GET',$url,[
+                'query' => $params,
             ]);
-            if($data){
-                Log::info('data persisted to db',['id' => $data->id]);
+
+            if(empty($response)){
+                throw new NoDataFetchedException('No data available to work with');
             }
-            else
-            {
-                Log::error("Some error occured");
+            $responseBody = json_decode($response->getBody());
+            $mention = new UserMention();
+            foreach($responseBody->data as $row){
+                $data = $mention::create([
+                    'post_id' => $row->id,
+                    'text' => $row->text,
+                    'users_oldest_id' => $responseBody->meta->oldest_id,
+                    'users_newest_id' => $responseBody->meta->newest_id,
+                    'username_appearance_count' => $responseBody->meta->result_count,
+                ]);
+                if(! $data){
+                    throw new DataInsertionFailedException('Data could be inserted try again');
+                }
+
+                DB::commit();
+                return response()->json(['message' => 'success','data' => $data],200);
+                
             }
-        }
-        // dd($responseBody);  
+        }catch(\Exception $e){
+            DB::rollback();
+            return response()->json(['message' => 'fail','data' => []]);
+        }  
     }
 }
