@@ -12,8 +12,10 @@ use App\Models\UserMention;
 class ProjectController extends Controller
 {
     public function tweetRetrieval(){
-        $client = new Client(); // new guzzle http client 
+        // NOTE Create Guzzle Client in service provider and use app binding when using in controllers
+        $client = new Client(); // new guzzle http client
 
+        // NOTE Define URLs in .env file (and config files too sometimes)
         $url = 'https://api.twitter.com/2/tweets';
 
         // query parameters
@@ -21,9 +23,11 @@ class ProjectController extends Controller
                 'ids' => '1263150595717730305,1227640996038684673,1199786642791452673',
                 'tweet.fields' => 'created_at',
                 'expansions' => 'author_id',
-                'user.fields' => 'created_at'     
+                'user.fields' => 'created_at'
         ];
 
+        // NOTE ACCESS TOKENS & API KEYS should be defined in .env file
+        // NOTE headers used in all requests should bet set in service provider
         // authorization token
         $headers = [
             'Authorization' => 'Bearer AAAAAAAAAAAAAAAAAAAAAPnhNAEAAAAAwt5vDJ%2BNlfs1qRYzRGYv8P89jf0%3DGxFJcptaF31fecaSq7qt0JrFbFaEt7auWRh0JJG3WhCCTtj29i
@@ -33,12 +37,13 @@ class ProjectController extends Controller
         $response = $client->request('GET',$url,[
             'headers' => $headers,
             'query' => $params,
-            
+
         ]
         );
 
         $responseBody = json_decode($response->getBody());
 
+        // NOTE Consider using transactions in case some DB operation fails
         foreach( $responseBody->data as $row){
             $data = TwitterUser::create(
                 [
@@ -48,6 +53,8 @@ class ProjectController extends Controller
                     'created_at' => $row->created_at
                 ]
             );
+
+            // NOTE use try catch block instead of if else
             if($data){
                 Log::info('data inserted to db.', ['id' => $data->id]);
                 echo "Data retrieved and has been persisted to database successfully\n";
@@ -59,6 +66,7 @@ class ProjectController extends Controller
         }
 
         // dd(sizeof($responseBody->data));
+        // NOTE return something here
 
     }
 
@@ -102,6 +110,6 @@ class ProjectController extends Controller
                 Log::error("Some error occured");
             }
         }
-        // dd($responseBody);  
+        // dd($responseBody);
     }
 }
